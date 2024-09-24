@@ -1,4 +1,4 @@
-import { App, FileSystemAdapter, Notice, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, Vault } from 'obsidian';
+import { App, EmbedCache, FileSystemAdapter, Notice, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, Vault } from 'obsidian';
 import { spawn } from 'child_process';
 import { Console } from 'console';
 
@@ -23,6 +23,11 @@ interface ImageLink {
 	path: string;
 };
 
+interface FileImage {
+	embed: EmbedCache;
+	file: TFile|null;
+}
+
 export default class TesseractOcrPlugin extends Plugin {
 	settings: PluginSettings;
 
@@ -44,24 +49,29 @@ export default class TesseractOcrPlugin extends Plugin {
 				let insertionCounter = 0;
 				let checkedFilesCounter = 0;
 
-				let allImages: TAbstractFile[] = [];
-				Vault.recurseChildren(app.vault.getRoot(), (file: TAbstractFile) => {
-					if(file.path.contains(this.settings.imagePath) && this.isImage(file)) {
-						allImages.push(file);
-					}
-				});
-				console.log(allImages.length + ' Images found!');
 				let files = this.getAllFiles();
 
 				for(const file of files) {
 					if(this.isMarkdown(file.name)) {
 						checkedFilesCounter++;
 
-						let linkRegex = /!\[\[.*\]\](?!<details>)/g
 						let content = await this.app.vault.cachedRead(file);
+						let fileCache = await this.app.metadataCache.getFileCache(file);
+						let fileImages: FileImage[]|null = [];
+						if (fileCache && fileCache.embeds) { 
+							fileImages = fileCache.embeds.map((e: EmbedCache): FileImage => { 
+								return {
+									embed: e, 
+									file: this.app.metadataCache.getFirstLinkpathDest(e.link, "") 
+								};
+							})
+							.filter((fi) => fi && fi.file && this.isImage(fi.file));
+						}
 						let newContent = content;
 						// Search for ![[]] links in content that don't have details
-						let matches = this.getImageMatches(newContent.match(linkRegex), allImages);
+						let matches = fileImages
+							.filter((fi) => newContent.match(new RegExp(`${fi.embed.original}(?!<details>)`, "g")))
+							.map((fi):ImageLink => { return {match: fi.embed.link, path: fi.file ? fi.file.path: ""} });
 
 						if(matches.length !== 0) console.log('found ' + matches.length + ' images without details in file ' + file.name + ' processing...');
 						let errorCounter = 0;
@@ -137,7 +147,7 @@ export default class TesseractOcrPlugin extends Plugin {
 		return newList;
 	}
 
-	private isImage(file: TAbstractFile): boolean {
+	private isImage(file: TFile): boolean {
 		return file instanceof TFile && ['jpg', 'png', 'jpeg'].includes(file.extension);
 	}
 	private isMarkdown(fileName: string): boolean {
