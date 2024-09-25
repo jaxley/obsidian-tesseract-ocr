@@ -70,7 +70,7 @@ export default class TesseractOcrPlugin extends Plugin {
 						let newContent = content;
 						// Search for ![[]] links in content that don't have details
 						let matches = fileImages
-							.filter((fi) => newContent.match(new RegExp(`${fi.embed.original}(?!<details>)`, "g")))
+							.filter((fi) => newContent.match(new RegExp(`${this.escapeRegExp(fi.embed.original)}(?!<details>)`, "g")))
 							.map((fi):ImageLink => { return {match: fi.embed.link, path: fi.file ? fi.file.path: ""} });
 
 						if(matches.length !== 0) console.log('found ' + matches.length + ' images without details in file ' + file.name + ' processing...');
@@ -119,6 +119,11 @@ export default class TesseractOcrPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	private escapeRegExp(regexstring: string) {
+		// from MDN https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions#escaping
+  		return regexstring.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // $& means the whole matched string
 	}
 
 	private getAllFiles(): TFile[] {
