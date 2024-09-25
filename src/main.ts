@@ -71,7 +71,7 @@ export default class TesseractOcrPlugin extends Plugin {
 						// Search for ![[]] links in content that don't have details
 						let matches = fileImages
 							.filter((fi) => newContent.match(new RegExp(`${this.escapeRegExp(fi.embed.original)}(?!<details>)`, "g")))
-							.map((fi):ImageLink => { return {match: fi.embed.link, path: fi.file ? fi.file.path: ""} });
+							.map((fi):ImageLink => { return {match: fi.embed.original, path: fi.file ? fi.file.path: ""} });
 
 						if(matches.length !== 0) console.log('found ' + matches.length + ' images without details in file ' + file.name + ' processing...');
 						let errorCounter = 0;
